@@ -9,6 +9,7 @@ import { exportCSV, exportPDF, exportXLSX } from "@/lib/exporters";
 import { isAfter, startOfMonth, subDays } from "date-fns";
 import { Wallet } from "lucide-react";
 import { toast } from "sonner";
+import { Footer } from "@/components/Footer";
 
 const Index = () => {
   const { expenses, budget, currency, addExpense, removeExpense, setBudget, setCurrency } = useExpenses();
@@ -82,9 +83,13 @@ const Index = () => {
 
         <ExpenseList expenses={filtered} currency={currency} onRemove={removeExpense} />
 
-        <footer className="pt-4 pb-2 text-center text-xs text-muted-foreground">
-          Built with glass • {expenses.length} total expenses tracked
-        </footer>
+        <div className="flex flex-col items-center gap-2 pt-4 pb-2">
+          <p className="text-center text-xs text-muted-foreground">
+            Built with glass • {expenses.length} total expenses tracked
+          </p>
+          <Footer />
+        </div>
+
       </div>
     </div>
   );

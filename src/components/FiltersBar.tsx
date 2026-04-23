@@ -80,27 +80,35 @@ export function FiltersBar({
         </SelectContent>
       </Select>
       
-      <div className="w-[100%] ml-auto">
-        <p className="mt-3 text-sm text-dark-foreground">Name Your Expenses Report</p>
-        <Input
+      <div className="flex flex-wrap sm:flex-nowrap items-end gap-3 w-full sm:w-auto ml-auto">
+        
+        {/* Report Name Input */}
+        <div className="flex flex-col gap-1.5 w-full sm:w-auto">
+          <label className="text-xs text-muted-foreground ml-1">
+            Name Your Expenses Report
+          </label>
+          <Input
             value={reportTitle}
             onChange={(e) => setReportTitle(e.target.value)}
             placeholder="Report title (e.g. Tour expense)"
-            className="glass-input rounded-xl border-white/40 w-[100%]"
+            className="glass-input rounded-xl border-white/40 w-full sm:w-[200px]"
             aria-label="Report title"
           />
-      </div>
+        </div>
 
-      <div className="flex flex-1 sm:flex-none items-center gap-2 ml-auto">
-        <Button variant="outline" onClick={() => onExportCSV(title)} className="glass-input border-white/40 rounded-xl">
-          <Download className="w-4 h-4 mr-1" /> CSV
-        </Button>
-        <Button variant="outline" onClick={() => onExportXLSX(title)} className="glass-input border-white/40 rounded-xl">
-          <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
-        </Button>
-        <Button onClick={() => onExportPDF(title)} className="rounded-xl bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow">
-          <FileText className="w-4 h-4 mr-1" /> PDF
-        </Button>
+        {/* Export Buttons */}
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Button variant="outline" onClick={() => onExportCSV(title)} className="glass-input border-white/40 rounded-xl flex-1 sm:flex-none">
+            <Download className="w-4 h-4 mr-1" /> CSV
+          </Button>
+          <Button variant="outline" onClick={() => onExportXLSX(title)} className="glass-input border-white/40 rounded-xl flex-1 sm:flex-none">
+            <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
+          </Button>
+          <Button onClick={() => onExportPDF(title)} className="rounded-xl bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow flex-1 sm:flex-none">
+            <FileText className="w-4 h-4 mr-1" /> PDF
+          </Button>
+        </div>
+        
       </div>
     </div>
   );
