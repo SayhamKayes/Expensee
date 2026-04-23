@@ -1,0 +1,107 @@
+import { useState } from "react";
+import { Search, FileSpreadsheet, FileText, Download } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CATEGORIES, Category } from "@/lib/expenses";
+
+const CURRENCIES = [
+  { code: "USD", symbol: "$", label: "USD ($)" },
+  { code: "EUR", symbol: "€", label: "EUR (€)" },
+  { code: "GBP", symbol: "£", label: "GBP (£)" },
+  { code: "INR", symbol: "₹", label: "INR (₹)" },
+  { code: "JPY", symbol: "¥", label: "JPY (¥)" },
+  { code: "CNY", symbol: "¥", label: "CNY (¥)" },
+  { code: "AUD", symbol: "A$", label: "AUD (A$)" },
+  { code: "CAD", symbol: "C$", label: "CAD (C$)" },
+  { code: "BRL", symbol: "R$", label: "BRL (R$)" },
+  { code: "MXN", symbol: "Mex$", label: "MXN (Mex$)" },
+  { code: "AED", symbol: "د.إ", label: "AED (د.إ)" },
+  { code: "BDT", symbol: "৳", label: "BDT (৳)" },
+];
+
+type Props = {
+  search: string; setSearch: (v: string) => void;
+  category: "all" | Category; setCategory: (v: "all" | Category) => void;
+  range: "all" | "7d" | "30d" | "month"; setRange: (v: any) => void;
+  onExportCSV: (title: string) => void;
+  onExportXLSX: (title: string) => void;
+  onExportPDF: (title: string) => void;
+  budget: number; setBudget: (n: number) => void;
+  currency: string; setCurrency: (s: string) => void;
+};
+
+export function FiltersBar({
+  search, setSearch, category, setCategory, range, setRange,
+  onExportCSV, onExportXLSX, onExportPDF, budget, setBudget,
+  currency, setCurrency,
+}: Props) {
+  const [reportTitle, setReportTitle] = useState("Expense Report");
+  const title = reportTitle.trim() || "Expense Report";
+
+  return (
+    <div className="glass rounded-3xl p-4 flex flex-wrap items-center gap-3">
+      <div className="relative flex-1 min-w-[200px]">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search expenses…"
+          className="glass-input pl-9 rounded-xl border-white/40"
+        />
+      </div>
+
+      <Select value={category} onValueChange={(v) => setCategory(v as any)}>
+        <SelectTrigger className="glass-input rounded-xl border-white/40 w-[140px]"><SelectValue /></SelectTrigger>
+        <SelectContent className="glass-strong border-white/40 rounded-xl">
+          <SelectItem value="all">All categories</SelectItem>
+          {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+        </SelectContent>
+      </Select>
+
+      <Select value={range} onValueChange={setRange}>
+        <SelectTrigger className="glass-input rounded-xl border-white/40 w-[130px]"><SelectValue /></SelectTrigger>
+        <SelectContent className="glass-strong border-white/40 rounded-xl">
+          <SelectItem value="all">All time</SelectItem>
+          <SelectItem value="7d">Last 7 days</SelectItem>
+          <SelectItem value="30d">Last 30 days</SelectItem>
+          <SelectItem value="month">This month</SelectItem>
+        </SelectContent>
+      </Select>
+
+      <Select value={currency} onValueChange={setCurrency}>
+        <SelectTrigger className="glass-input rounded-xl border-white/40 w-[130px]" aria-label="Currency">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="glass-strong border-white/40 rounded-xl max-h-72">
+          {CURRENCIES.map(c => (
+            <SelectItem key={c.code} value={c.symbol}>{c.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      
+      <div className="w-[100%] ml-auto">
+        <p className="mt-3 text-sm text-dark-foreground">Name Your Expenses Report</p>
+        <Input
+            value={reportTitle}
+            onChange={(e) => setReportTitle(e.target.value)}
+            placeholder="Report title (e.g. Tour expense)"
+            className="glass-input rounded-xl border-white/40 w-[100%]"
+            aria-label="Report title"
+          />
+      </div>
+
+      <div className="flex flex-1 sm:flex-none items-center gap-2 ml-auto">
+        <Button variant="outline" onClick={() => onExportCSV(title)} className="glass-input border-white/40 rounded-xl">
+          <Download className="w-4 h-4 mr-1" /> CSV
+        </Button>
+        <Button variant="outline" onClick={() => onExportXLSX(title)} className="glass-input border-white/40 rounded-xl">
+          <FileSpreadsheet className="w-4 h-4 mr-1" /> Excel
+        </Button>
+        <Button onClick={() => onExportPDF(title)} className="rounded-xl bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow">
+          <FileText className="w-4 h-4 mr-1" /> PDF
+        </Button>
+      </div>
+    </div>
+  );
+}
