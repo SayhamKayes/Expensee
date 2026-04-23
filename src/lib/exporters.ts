@@ -3,6 +3,9 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Expense } from "./expenses";
 import { format } from "date-fns";
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 type ExportOpts = {
   currency?: string;       // symbol for display in CSV/XLSX
@@ -22,40 +25,7 @@ function rows(expenses: Expense[], currency: string) {
     [`Amount (${currency})`]: `${currency}${e.amount.toFixed(2)}`,
     Recurring: e.recurring || "no",
   }));
-}
-
-export function exportCSV(expenses: Expense[], opts: ExportOpts = {}) {
-  const { currency = "$", title = "Expense Report" } = opts;
-  const data = rows(expenses, currency);
-  const total = expenses.reduce((s, e) => s + e.amount, 0);
-  const amountKey = `Amount (${currency})`;
-  const headers = Object.keys(data[0] ?? { Date: "", Purpose: "", Category: "", [amountKey]: "", Recurring: "" });
-  const csv = [
-    `Title:,${JSON.stringify(title)}`,
-    `Currency:,${currency}`,
-    `Generated:,${format(new Date(), "yyyy-MM-dd HH:mm")}`,
-    "",
-    headers.join(","),
-    ...data.map(r => headers.map(h => JSON.stringify((r as any)[h] ?? "")).join(",")),
-    "",
-    `,,Total,${currency}${total.toFixed(2)},`,
-  ].join("\n");
-  download(new Blob([csv], { type: "text/csv;charset=utf-8" }), `${sanitizeFilename(title)}.csv`);
-}
-
-export function exportXLSX(expenses: Expense[], opts: ExportOpts = {}) {
-  const { currency = "$", title = "Expense Report" } = opts;
-  const data = rows(expenses, currency);
-  const total = expenses.reduce((s, e) => s + e.amount, 0);
-  const ws = XLSX.utils.json_to_sheet(data);
-  XLSX.utils.sheet_add_aoa(ws, [["", "", "Total", `${currency}${total.toFixed(2)}`, ""]], { origin: -1 });
-  XLSX.utils.sheet_add_aoa(ws, [[`Title: ${title}`]], { origin: -1 });
-  XLSX.utils.sheet_add_aoa(ws, [[`Currency: ${currency}`]], { origin: -1 });
-  ws["!cols"] = [{ wch: 12 }, { wch: 30 }, { wch: 14 }, { wch: 16 }, { wch: 12 }];
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Expenses");
-  XLSX.writeFile(wb, `${sanitizeFilename(title)}.xlsx`);
-}
+};
 
 // Lazy-load a Unicode TTF (Noto Sans) so symbols like ৳, ₹, د.إ render correctly.
 let notoFontPromise: Promise<string | null> | null = null;
@@ -119,54 +89,124 @@ function getPdfCurrencyDisplay(symbol: string, code?: string, useUnicode = false
   };
 }
 
-export async function exportPDF(expenses: Expense[], opts: ExportOpts = {}) {
-  const { currency = "$", currencyCode, title = "Expense Report" } = opts;
-  const doc = new jsPDF();
-
-  // Try to register the Unicode font; if it fails, fall back to ISO code text.
-  let useUnicode = false;
-  const b64 = await loadNotoBase64();
-  if (b64) {
-    try {
-      doc.addFileToVFS("NotoSans-Regular.ttf", b64);
-      doc.addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
-      doc.setFont("NotoSans", "normal");
-      useUnicode = true;
-    } catch {
-      useUnicode = false;
-    }
-  }
-  const currencyDisplay = getPdfCurrencyDisplay(currency, currencyCode, useUnicode);
-  const formatSummaryAmount = (amount: number) => `${currencyDisplay.summaryPrefix}${amount.toFixed(2)}`;
-  const formatRowAmount = (amount: number) => `${currencyDisplay.rowPrefix}${amount.toFixed(2)}`;
-  const total = expenses.reduce((s, e) => s + e.amount, 0);
-  doc.setFontSize(20);
-  doc.text(title, 14, 20);
-  doc.setFontSize(11);
-  doc.setTextColor(100);
-  doc.text(`Generated ${format(new Date(), "PPP")}`, 14, 28);
-  doc.text(`Currency: ${currencyDisplay.headerLabel}  •  Total: ${formatSummaryAmount(total)}  •  ${expenses.length} entries`, 14, 34);
-
-  autoTable(doc, {
-    startY: 42,
-    head: [["Date", "Purpose", "Category", `Amount (${currencyDisplay.headerLabel})`]],
-    body: expenses.map(e => [
-      format(new Date(e.date), "yyyy-MM-dd"),
-      e.purpose,
-      e.category,
-      formatRowAmount(e.amount),
-    ]),
-    foot: [["", "", "Total", formatRowAmount(total)]],
-    headStyles: { fillColor: [124, 58, 237], font: useUnicode ? "NotoSans" : "helvetica" },
-    footStyles: { fillColor: [240, 240, 245], textColor: 20, fontStyle: "bold", font: useUnicode ? "NotoSans" : "helvetica" },
-    styles: { fontSize: 10, font: useUnicode ? "NotoSans" : "helvetica" },
-  });
-  doc.save(`${sanitizeFilename(title)}.pdf`);
-}
-
 function download(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
-}
+};
+
+// 1. Add this helper function at the top of your file. 
+// Capacitor requires files to be in Base64 format to save them on mobile.
+const blobToBase64 = (blob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      resolve(reader.result as string);
+    };
+    reader.readAsDataURL(blob);
+  });
+};
+
+// 2. Here is an example of how to update your CSV export
+export const exportCSV = async (expenses: any[], options: any) => {
+  const { title } = options;
+  
+  // ... (Keep your existing code that generates the CSV text) ...
+  const csvContent = "Date,Purpose,Amount\n2024-01-01,Food,50"; // (Your actual CSV logic)
+
+  if (Capacitor.isNativePlatform()) {
+    // --- MOBILE BEHAVIOR ---
+    try {
+      // Write the file to the app's native cache directory
+      const result = await Filesystem.writeFile({
+        path: `${title}.csv`,
+        data: csvContent,
+        directory: Directory.Cache,
+        encoding: Encoding.UTF8
+      });
+
+      // Pop open the Android native Share menu!
+      await Share.share({
+        title: title,
+        url: result.uri,
+        dialogTitle: 'Export Expenses'
+      });
+    } catch (e) {
+      console.error("Mobile export failed", e);
+    }
+  } else {
+    // --- WEB/DESKTOP BEHAVIOR ---
+    // (Keep your existing standard web download code here)
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `${title}.csv`;
+    link.click();
+  }
+};
+
+export const exportPDF = async (expenses: any[], options: any) => {
+  const { title } = options;
+  
+  // ... (Your existing PDF generation logic that creates a Blob) ...
+  const pdfBlob = new Blob(); // Replace with your actual PDF blob
+
+  if (Capacitor.isNativePlatform()) {
+    // Convert Blob to Base64 for native saving
+    const base64Data = await blobToBase64(pdfBlob);
+    
+    // We must remove the "data:application/pdf;base64," prefix that FileReader adds
+    const cleanBase64 = base64Data.split(',')[1]; 
+
+    const result = await Filesystem.writeFile({
+      path: `${title}.pdf`,
+      data: cleanBase64,
+      directory: Directory.Cache
+    });
+
+    await Share.share({
+      title: title,
+      url: result.uri,
+    });
+  } else {
+    // Standard web download...
+  }
+};
+
+export const exportXLSX = async (expenses: any[], options: any) => {
+  const { title } = options;
+
+  // ... [KEEP YOUR EXISTING EXCEL GENERATION CODE HERE] ...
+  
+  // Let's assume your existing code produces this:
+  const excelBlob = new Blob([/* your excel data */]); 
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      // 1. Convert to Base64
+      const base64Data = await blobToBase64(excelBlob);
+      // 2. Strip off the data prefix that FileReader adds
+      const cleanBase64 = base64Data.split(',')[1];
+
+      // 3. Save to native cache
+      const result = await Filesystem.writeFile({
+        path: `${title}.xlsx`,
+        data: cleanBase64,
+        directory: Directory.Cache
+      });
+
+      // 4. Open Share Menu
+      await Share.share({
+        title: title,
+        url: result.uri,
+      });
+    } catch (e) {
+      console.error("Mobile Excel export failed", e);
+    }
+  } else {
+    // --- WEB/DESKTOP BEHAVIOR ---
+    // ... [KEEP YOUR EXISTING WEB DOWNLOAD CODE HERE] ...
+  }
+};
