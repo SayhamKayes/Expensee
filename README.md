@@ -89,4 +89,4 @@ cd Expensee</code></pre>
 <p>This project is open-source and available under the <a href="LICENSE">MIT License</a>.</p>
 
 <hr>
-<p align="center"><i>Designed &amp; Developed by <a href="https://github.com/SayhamKayes">Sayham Kayes</a></i></p>
+<p align="center"><i>Designed &amp; Developed by <a href="https://sayhamkayes.github.io/portfolio/">Sayham Kayes</a></i></p>
