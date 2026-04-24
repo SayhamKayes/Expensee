@@ -3,7 +3,9 @@
 
 Expensee is a beautifully designed, mobile-first expense tracking application. Built with a modern glassmorphism UI, it features intelligent voice input for hands-free tracking, rich interactive charts, and a strict privacy-first architecture where all data lives locally on your device.
 
-![Expensee Dashboard](https://via.placeholder.com/800x400?text=Expensee+Dashboard+Preview) ## ✨ Features
+![Expensee Dashboard](https://img.itch.zone/aW1hZ2UvNDUwNDk3OS8yNjg2Mjg4NS5wbmc=/original/UKh3Bn.png) 
+
+## ✨ Features
 
 * 🎙️ **Smart Voice Input:** Tap the mic and say *"12 dollars for lunch"* — Expensee's smart parser automatically extracts the amount, purpose, and category. Works flawlessly on both Web and Native Android.
 * 📊 **Rich Analytics:** Visualize your spending with interactive 14-day trend lines, 7-day bar charts, and category-based pie charts.
