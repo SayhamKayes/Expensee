@@ -166,6 +166,16 @@ export const exportPDF = async (expenses: Expense[], options: ExportOpts) => {
     startY: 52,
     head: [["Date", "Purpose", "Category", `Amount (${display.headerLabel})`, "Recurring"]],
     body: tableData,
+    
+    // 1. ADD THE FOOTER ARRAY
+    foot: [["", "", "Total:", `${display.rowPrefix}${totalAmount.toFixed(2)}`, ""]],
+    
+    // 2. ADD STYLING TO MAKE IT POP
+    footStyles: {
+      fillColor: [240, 240, 240], // Light gray background
+      textColor: [0, 0, 0],       // Black text
+      fontStyle: "bold",          // Make it bold so it stands out
+    }
   });
 
   if (Capacitor.isNativePlatform()) {
