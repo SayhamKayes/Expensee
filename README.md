@@ -86,7 +86,7 @@ cd Expensee</code></pre>
 <p>Contributions, issues, and feature requests are welcome! Feel free to check the <a href="https://github.com/SayhamKayes/Expensee/issues">issues page</a>.</p>
 
 <h2>📄 License</h2>
-<p>This project is open-source and available under the <a href="LICENSE">MIT License</a>.</p>
+<p>This project is open-source and available under the <a href="https://github.com/SayhamKayes/Expensee/blob/main/LICENSE.txt">MIT License</a>.</p>
 
 <hr>
 <p align="center"><i>Designed &amp; Developed by <a href="https://sayhamkayes.github.io/portfolio/">Sayham Kayes</a></i></p>
