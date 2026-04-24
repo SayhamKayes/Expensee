@@ -1,6 +1,6 @@
 <div align="center">
   <img src="https://raw.githubusercontent.com/SayhamKayes/Expensee/refs/heads/main/public/Expensee_logo_favicon.png" alt="Expensee Logo" width="120" />
-  <h1>💸 Expensee</h1>
+  <h1>Expensee</h1>
   <p><b>Record Expense | Track it | Export it.</b></p>
   <br>
   <a href="https://sayham.itch.io/expensee">
