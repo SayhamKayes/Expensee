@@ -25,30 +25,6 @@ function rows(expenses: Expense[], currency: string) {
     [`Amount (${currency})`]: `${currency}${e.amount.toFixed(2)}`,
     Recurring: e.recurring || "no",
   }));
-};
-
-// Lazy-load a Unicode TTF (Noto Sans) so symbols like ৳, ₹, د.إ render correctly.
-let notoFontPromise: Promise<string | null> | null = null;
-async function loadNotoBase64(): Promise<string | null> {
-  if (!notoFontPromise) {
-    notoFontPromise = (async () => {
-      try {
-        const res = await fetch("/fonts/NotoSans-Regular.ttf");
-        if (!res.ok) return null;
-        const buf = await res.arrayBuffer();
-        let binary = "";
-        const bytes = new Uint8Array(buf);
-        const chunk = 0x8000;
-        for (let i = 0; i < bytes.length; i += chunk) {
-          binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)) as any);
-        }
-        return btoa(binary);
-      } catch {
-        return null;
-      }
-    })();
-  }
-  return notoFontPromise;
 }
 
 const PDF_SAFE_SYMBOLS = new Set(["$", "€", "£", "¥", "A$", "C$", "R$", "Mex$"]);
@@ -64,29 +40,17 @@ function getPdfCurrencyDisplay(symbol: string, code?: string, useUnicode = false
   const safeCode = code?.trim();
 
   if (safeCode === "BDT") {
-    return {
-      headerLabel: safeCode,
-      summaryPrefix: `${safeCode} `,
-      rowPrefix: "",
-    };
+    return { headerLabel: safeCode, summaryPrefix: `${safeCode} `, rowPrefix: "" };
   }
 
   if ((useUnicode || PDF_SAFE_SYMBOLS.has(safeSymbol)) && safeSymbol) {
-    return {
-      headerLabel: safeSymbol,
-      summaryPrefix: safeSymbol,
-      rowPrefix: safeSymbol,
-    };
+    return { headerLabel: safeSymbol, summaryPrefix: safeSymbol, rowPrefix: safeSymbol };
   }
 
   const fallback = safeCode || safeSymbol || "CUR";
   const prefix = safeCode ? `${fallback} ` : fallback;
 
-  return {
-    headerLabel: fallback,
-    summaryPrefix: prefix,
-    rowPrefix: prefix,
-  };
+  return { headerLabel: fallback, summaryPrefix: prefix, rowPrefix: prefix };
 }
 
 function download(blob: Blob, filename: string) {
@@ -94,119 +58,134 @@ function download(blob: Blob, filename: string) {
   const a = document.createElement("a");
   a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
-};
+}
 
-// 1. Add this helper function at the top of your file. 
-// Capacitor requires files to be in Base64 format to save them on mobile.
-const blobToBase64 = (blob: Blob): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = reject;
-    reader.onload = () => {
-      resolve(reader.result as string);
-    };
-    reader.readAsDataURL(blob);
-  });
-};
+// ==========================================
+// EXPORT CSV
+// ==========================================
+export const exportCSV = async (expenses: Expense[], options: ExportOpts) => {
+  const { currency = "$", title = "Expense Report" } = options;
+  const fileName = sanitizeFilename(title);
 
-// 2. Here is an example of how to update your CSV export
-export const exportCSV = async (expenses: any[], options: any) => {
-  const { title } = options;
-  
-  // ... (Keep your existing code that generates the CSV text) ...
-  const csvContent = "Date,Purpose,Amount\n2024-01-01,Food,50"; // (Your actual CSV logic)
+  // Generate actual CSV string data
+  const header = ["Date", "Purpose", "Category", `Amount (${currency})`, "Recurring"];
+  const dataRows = rows(expenses, currency).map(r => 
+    [r.Date, `"${r.Purpose}"`, r.Category, r[`Amount (${currency})`], r.Recurring]
+  );
+  const csvContent = [header.join(","), ...dataRows.map(r => r.join(","))].join("\n");
 
   if (Capacitor.isNativePlatform()) {
-    // --- MOBILE BEHAVIOR ---
     try {
-      // Write the file to the app's native cache directory
       const result = await Filesystem.writeFile({
-        path: `${title}.csv`,
+        path: `${fileName}.csv`,
         data: csvContent,
         directory: Directory.Cache,
-        encoding: Encoding.UTF8
+        encoding: Encoding.UTF8 // Only use encoding for CSV
       });
-
-      // Pop open the Android native Share menu!
-      await Share.share({
-        title: title,
-        url: result.uri,
-        dialogTitle: 'Export Expenses'
-      });
+      await Share.share({ title: fileName, url: result.uri });
     } catch (e) {
-      console.error("Mobile export failed", e);
+      console.error("Mobile CSV export failed", e);
     }
   } else {
-    // --- WEB/DESKTOP BEHAVIOR ---
-    // (Keep your existing standard web download code here)
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `${title}.csv`;
-    link.click();
+    download(blob, `${fileName}.csv`);
   }
 };
 
-export const exportPDF = async (expenses: any[], options: any) => {
-  const { title } = options;
-  
-  // ... (Your existing PDF generation logic that creates a Blob) ...
-  const pdfBlob = new Blob(); // Replace with your actual PDF blob
+// ==========================================
+// EXPORT XLSX (EXCEL)
+// ==========================================
+export const exportXLSX = async (expenses: Expense[], options: ExportOpts) => {
+  const { currency = "$", title = "Expense Report" } = options;
+  const fileName = sanitizeFilename(title);
 
-  if (Capacitor.isNativePlatform()) {
-    // Convert Blob to Base64 for native saving
-    const base64Data = await blobToBase64(pdfBlob);
-    
-    // We must remove the "data:application/pdf;base64," prefix that FileReader adds
-    const cleanBase64 = base64Data.split(',')[1]; 
-
-    const result = await Filesystem.writeFile({
-      path: `${title}.pdf`,
-      data: cleanBase64,
-      directory: Directory.Cache
-    });
-
-    await Share.share({
-      title: title,
-      url: result.uri,
-    });
-  } else {
-    // Standard web download...
-  }
-};
-
-export const exportXLSX = async (expenses: any[], options: any) => {
-  const { title } = options;
-
-  // ... [KEEP YOUR EXISTING EXCEL GENERATION CODE HERE] ...
-  
-  // Let's assume your existing code produces this:
-  const excelBlob = new Blob([/* your excel data */]); 
+  // Generate actual Excel Workbook
+  const worksheet = XLSX.utils.json_to_sheet(rows(expenses, currency));
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Expenses");
 
   if (Capacitor.isNativePlatform()) {
     try {
-      // 1. Convert to Base64
-      const base64Data = await blobToBase64(excelBlob);
-      // 2. Strip off the data prefix that FileReader adds
-      const cleanBase64 = base64Data.split(',')[1];
+      // Get pure base64 directly from SheetJS
+      const base64Data = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
 
-      // 3. Save to native cache
       const result = await Filesystem.writeFile({
-        path: `${title}.xlsx`,
-        data: cleanBase64,
+        path: `${fileName}.xlsx`,
+        data: base64Data,
         directory: Directory.Cache
+        // NO ENCODING HERE
       });
-
-      // 4. Open Share Menu
-      await Share.share({
-        title: title,
-        url: result.uri,
-      });
+      await Share.share({ title: fileName, url: result.uri });
     } catch (e) {
       console.error("Mobile Excel export failed", e);
     }
   } else {
-    // --- WEB/DESKTOP BEHAVIOR ---
-    // ... [KEEP YOUR EXISTING WEB DOWNLOAD CODE HERE] ...
+    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    download(blob, `${fileName}.xlsx`);
+  }
+};
+
+// ==========================================
+// EXPORT PDF
+// ==========================================
+export const exportPDF = async (expenses: Expense[], options: ExportOpts) => {
+  const { currency = "$", currencyCode, title = "Expense Report" } = options;
+  const fileName = sanitizeFilename(title);
+
+  // 1. Calculate the totals
+  const totalAmount = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalEntries = expenses.length;
+
+  // Generate actual PDF Document
+  const doc = new jsPDF();
+  const display = getPdfCurrencyDisplay(currency, currencyCode, false);
+
+  // Draw the Title
+  doc.setFontSize(18);
+  doc.setTextColor(0, 0, 0); // Black text
+  doc.text(title, 14, 22);
+
+  // 2. Draw the Summary Details
+  doc.setFontSize(11);
+  doc.setTextColor(100, 100, 100); // Subtle gray text for a professional look
+  doc.text(`Currency: ${display.headerLabel}`, 14, 32);
+  doc.text(`Total Entries: ${totalEntries}`, 14, 38);
+  doc.text(`Total Amount: ${display.summaryPrefix}${totalAmount.toFixed(2)}`, 14, 44);
+
+  const tableData = expenses.map(e => [
+    format(new Date(e.date), "yyyy-MM-dd"),
+    e.purpose,
+    e.category,
+    `${display.rowPrefix}${e.amount.toFixed(2)}`,
+    e.recurring ? "Yes" : "No"
+  ]);
+
+  // 3. Draw the Table (Pushed startY down to 52 to make room for the text)
+  autoTable(doc, {
+    startY: 52,
+    head: [["Date", "Purpose", "Category", `Amount (${display.headerLabel})`, "Recurring"]],
+    body: tableData,
+  });
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      // Get base64 string directly from jsPDF
+      const dataUri = doc.output('datauristring');
+      const cleanBase64 = dataUri.split(',')[1]; // Strip prefix
+
+      const result = await Filesystem.writeFile({
+        path: `${fileName}.pdf`,
+        data: cleanBase64,
+        directory: Directory.Cache
+        // NO ENCODING HERE
+      });
+      await Share.share({ title: fileName, url: result.uri });
+    } catch (e) {
+      console.error("Mobile PDF export failed", e);
+    }
+  } else {
+    const blob = doc.output('blob');
+    download(blob, `${fileName}.pdf`);
   }
 };
