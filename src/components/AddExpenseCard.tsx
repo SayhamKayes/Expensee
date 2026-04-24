@@ -19,23 +19,25 @@ export function AddExpenseCard({ onAdd }: Props) {
   const [category, setCategory] = useState<Category>("Other");
   const [recurring, setRecurring] = useState<"no" | "monthly" | "weekly">("no");
 
+  const isMobile = typeof window !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
   const { listening, supported, interim, start, stop } = useVoiceInput(
     (text) => {
-      // Final chunk: append to existing text and parse
+      // Final chunk logic
       setRaw((prev) => {
-        const merged = (prev ? prev.trim() + " " : "") + text;
-        const parsed = parseExpenseText(merged);
-        if (parsed.amount != null) setAmount(String(parsed.amount));
-        if (parsed.purpose) setPurpose(parsed.purpose);
-        setCategory(parsed.category);
-        return merged;
+        // Fix: If mobile (single sentence), replace the text. 
+        // If web (continuous listening), append the new chunks.
+        const newText = isMobile ? text : (prev ? prev.trim() + " " : "") + text;
+        
+        // We don't need to manually parse here because setting `raw` 
+        // will automatically trigger your `useEffect` right below this!
+        return newText; 
       });
-      toast.success("Voice captured", { description: text });
+      toast.success("Voice captured");
     },
     {
-      continuous: true,
+      continuous: !isMobile, 
       onInterim: (text) => {
-        // Live streaming: show interim words in the input as you speak
         setRaw(text);
       },
     }
