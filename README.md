@@ -1,9 +1,9 @@
-# 💸 Expensee
-> Record Expense | Track it | Export it.
+!(https://raw.githubusercontent.com/SayhamKayes/Expensee/refs/heads/main/public/Expensee_logo_favicon.png)
+Record Expense | Track it | Export it.
 
 Expensee is a beautifully designed, mobile-first expense tracking application. Built with a modern glassmorphism UI, it features intelligent voice input for hands-free tracking, rich interactive charts, and a strict privacy-first architecture where all data lives locally on your device.
 
-![Expensee Dashboard](https://img.itch.zone/aW1hZ2UvNDUwNDk3OS8yNjg2Mjg4NS5wbmc=/original/UKh3Bn.png) 
+![Expensee Dashboard](https://raw.githubusercontent.com/SayhamKayes/Expensee/refs/heads/main/public/app%20view/README-file-image.png) 
 
 ## ✨ Features
 
