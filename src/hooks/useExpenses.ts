@@ -14,6 +14,15 @@ export function useExpenses() {
     setState(s => ({ ...s, expenses: s.expenses.filter(x => x.id !== id) }));
   }, []);
 
+  const updateExpense = useCallback((id: string, updatedData: Partial<Expense>) => {
+    setState((s) => ({
+      ...s,
+      expenses: s.expenses.map((expense) =>
+        expense.id === id ? { ...expense, ...updatedData } : expense
+      ),
+    }));
+  }, []);
+
   const setBudget = useCallback((budget: number) => {
     setState(s => ({ ...s, budget }));
   }, []);
@@ -26,5 +35,5 @@ export function useExpenses() {
     setState(s => ({ ...s, expenses: [] }));
   }, []);
 
-  return { ...state, addExpense, removeExpense, setBudget, setCurrency, clearAll };
+  return { ...state, addExpense, removeExpense, updateExpense, setBudget, setCurrency, clearAll };
 }

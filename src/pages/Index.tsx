@@ -4,17 +4,21 @@ import { AddExpenseCard } from "@/components/AddExpenseCard";
 import { StatsPanel } from "@/components/StatsPanel";
 import { FiltersBar } from "@/components/FiltersBar";
 import { ExpenseList } from "@/components/ExpenseList";
-import { Category } from "@/lib/expenses";
+import { Category, CATEGORIES, Expense } from "@/lib/expenses";
 import { exportCSV, exportPDF, exportXLSX } from "@/lib/exporters";
 import { isAfter, startOfMonth, subDays } from "date-fns";
-import { Wallet } from "lucide-react";
+import { Wallet, X } from "lucide-react";
 import { toast } from "sonner";
 import { Footer } from "@/components/Footer";
 import { MobileShell, MobileTab } from "@/components/MobileShell";
 import { MobileDashboard, MobileCategories, MobileGraph } from "@/components/MobileViews";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const Index = () => {
-  const { expenses, budget, currency, addExpense, removeExpense, setBudget, setCurrency } = useExpenses();
+  // 1. Destructured the new updateExpense function here!
+  const { expenses, budget, currency, addExpense, removeExpense, updateExpense, setBudget, setCurrency } = useExpenses();
   const CURRENCY_CODE_MAP: Record<string, string> = {
     "$": "USD", "€": "EUR", "£": "GBP", "₹": "INR", "¥": "JPY",
     "A$": "AUD", "C$": "CAD", "R$": "BRL", "Mex$": "MXN",
@@ -25,6 +29,9 @@ const Index = () => {
   const [category, setCategory] = useState<"all" | Category>("all");
   const [range, setRange] = useState<"all" | "7d" | "30d" | "month">("all");
   const [mobileTab, setMobileTab] = useState<MobileTab>("dashboard");
+  
+  // 2. Added State to track which expense is currently being edited
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
   const filtered = useMemo(() => {
     const now = new Date();
@@ -66,7 +73,8 @@ const Index = () => {
               onExportXLSX={(title) => guard(() => exportXLSX(filtered, { currency, currencyCode, title }))()}
               onExportPDF={(title) => guard(() => exportPDF(filtered, { currency, currencyCode, title }))()}
             />
-            <ExpenseList expenses={filtered} currency={currency} onRemove={removeExpense} />
+            {/* Added onEdit prop here */}
+            <ExpenseList expenses={filtered} currency={currency} onRemove={removeExpense} onEdit={setEditingExpense} />
           </>
         )}
         {mobileTab === "categories" && (
@@ -80,10 +88,8 @@ const Index = () => {
         )}
       </MobileShell>
 
-      {/* DESKTOP LAYOUT (Hidden on mobile via 'hidden md:block') */}
+      {/* DESKTOP LAYOUT */}
       <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-8 md:py-12 space-y-6 hidden md:block">
-        
-        {/* Header - Preserved your custom Expensee logo and tagline */}
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-[55px] h-[20px] rounded-2xl flex items-center justify-center">
@@ -101,7 +107,6 @@ const Index = () => {
         </header>
 
         <StatsPanel expenses={expenses} budget={budget} currency={currency} setBudget={setBudget} />
-
         <AddExpenseCard onAdd={addExpense} />
 
         <FiltersBar
@@ -115,19 +120,117 @@ const Index = () => {
           onExportPDF={(title) => guard(() => exportPDF(filtered, { currency, currencyCode, title }))()}
         />
 
-        <ExpenseList expenses={filtered} currency={currency} onRemove={removeExpense} />
+        {/* Added onEdit prop here */}
+        <ExpenseList expenses={filtered} currency={currency} onRemove={removeExpense} onEdit={setEditingExpense} />
 
-        {/* Footer - Preserved your copyright block */}
         <div className="flex flex-col items-center gap-2 pt-4 pb-2">
           <p className="text-center text-xs text-muted-foreground">
             Built with glass • {expenses.length} total expenses tracked
           </p>
           <Footer />
         </div>
-
       </div>
+
+      {/* 3. The Custom Edit Modal Popup */}
+      {editingExpense && (
+        <EditExpenseModal 
+          expense={editingExpense} 
+          onClose={() => setEditingExpense(null)} 
+          onSave={(id, updatedData) => {
+            updateExpense(id, updatedData);
+            setEditingExpense(null);
+            toast.success("Expense updated successfully!");
+          }} 
+        />
+      )}
+
     </div>
   );
 };
+
+// ==============================================================
+// Mini Component to handle the Edit Form cleanly
+// ==============================================================
+function EditExpenseModal({ 
+  expense, 
+  onClose, 
+  onSave 
+}: { 
+  expense: Expense; 
+  onClose: () => void; 
+  onSave: (id: string, data: Partial<Expense>) => void; 
+}) {
+  const [purpose, setPurpose] = useState(expense.purpose);
+  const [amount, setAmount] = useState(expense.amount.toString());
+  const [category, setCategory] = useState<Category>(expense.category as Category);
+
+  const handleSave = () => {
+    if (!purpose.trim() || !amount) return toast.error("Please fill all fields");
+    onSave(expense.id, {
+      purpose,
+      amount: parseFloat(amount),
+      category
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+      <div className="glass-strong rounded-3xl p-6 w-full max-w-sm relative animate-in fade-in zoom-in duration-200">
+        
+        {/* Close Button */}
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="absolute top-4 right-4 rounded-full hover:bg-white/20 text-muted-foreground" 
+          onClick={onClose}
+        >
+          <X className="w-4 h-4" />
+        </Button>
+        
+        <h2 className="text-xl font-bold mb-6">Edit Expense</h2>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs text-muted-foreground ml-1">Purpose</label>
+            <Input
+              value={purpose}
+              onChange={(e) => setPurpose(e.target.value)}
+              className="glass-input rounded-xl border-white/40 mt-1"
+            />
+          </div>
+          
+          <div>
+            <label className="text-xs text-muted-foreground ml-1">Amount</label>
+            <Input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="glass-input rounded-xl border-white/40 mt-1"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-muted-foreground ml-1">Category</label>
+            <Select value={category} onValueChange={(v) => setCategory(v as Category)}>
+              <SelectTrigger className="glass-input rounded-xl border-white/40 mt-1">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="glass-strong border-white/40 rounded-xl">
+                {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Button
+             className="w-full rounded-xl bg-gradient-primary text-primary-foreground hover:opacity-90 shadow-glow mt-4"
+             onClick={handleSave}
+          >
+            Save Changes
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default Index;
