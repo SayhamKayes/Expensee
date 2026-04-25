@@ -4,7 +4,7 @@ export function Footer() {
     return (
       <footer className="w-full py-0 mt-auto">
         <div className="text-center text-sm text-muted-foreground opacity-80">
-          &copy; {currentYear} | <a href="https://sayhamkayes.github.io/portfolio/" target="_blank">Sayham Kayes</a>
+          Copyright &copy; {currentYear} | Developed by <a href="https://sayhamkayes.github.io/portfolio/" target="_blank"><b>Sayham Kayes</b></a>
         </div>
       </footer>
     );
