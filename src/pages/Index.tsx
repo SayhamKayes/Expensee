@@ -7,7 +7,7 @@ import { ExpenseList } from "@/components/ExpenseList";
 import { Category, CATEGORIES, Expense } from "@/lib/expenses";
 import { exportCSV, exportPDF, exportXLSX } from "@/lib/exporters";
 import { isAfter, startOfMonth, subDays } from "date-fns";
-import { Wallet, X } from "lucide-react";
+import { Wallet, X, Moon, Sun } from "lucide-react";
 import { toast } from "sonner";
 import { Footer } from "@/components/Footer";
 import { MobileShell, MobileTab } from "@/components/MobileShell";
@@ -15,6 +15,7 @@ import { MobileDashboard, MobileCategories, MobileGraph } from "@/components/Mob
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useDarkMode } from "@/hooks/useDarkMode"; 
 
 const Index = () => {
   // 1. Destructured the new updateExpense function here!
@@ -32,6 +33,9 @@ const Index = () => {
   
   // 2. Added State to track which expense is currently being edited
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  
+  // <-- Initialize Dark Mode Hook here
+  const { isDarkMode, toggleDarkMode } = useDarkMode();
 
   const filtered = useMemo(() => {
     const now = new Date();
@@ -100,9 +104,23 @@ const Index = () => {
               <p className="text-xs text-primary-foreground">Record Expense | Track it | Export it.</p>
             </div>
           </div>
-          <div className="hidden sm:flex items-center gap-2 glass rounded-full px-4 py-2 text-xs">
-            <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
-            All data saved locally
+          
+          {/* <-- Container for the Toggle and the Badge --> */}
+          <div className="hidden sm:flex items-center gap-3">
+            
+            <button
+              onClick={toggleDarkMode}
+              className="glass-input rounded-full h-9 w-9 flex items-center justify-center border border-white/40 hover:bg-white/20 transition-all shrink-0"
+              aria-label="Toggle Dark Mode"
+            >
+              {isDarkMode ? <Sun className="w-4 h-4 text-yellow-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
+            </button>
+
+            <div className="flex items-center gap-2 glass rounded-full px-4 py-2 text-xs">
+              <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+              All data saved locally
+            </div>
+
           </div>
         </header>
 
