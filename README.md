@@ -27,7 +27,7 @@
 
 <h2>📥 Download</h2>
 <p>You can download the latest compiled Android APK directly from itch.io:<br>
-👉 <a href="https://sayham.itch.io/expensee"><b>Download Expensee for Android</b></a></p>
+👉 <a href="https://play.google.com/store/apps/details?id=com.sayhamkayes.expensee"><b>Download Expensee for Android</b></a></p>
 
 <h2>🛠️ Tech Stack</h2>
 <ul>
