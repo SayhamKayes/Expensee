@@ -3,8 +3,8 @@
   <h1>Expensee</h1>
   <p><b>Record Expense | Track it | Export it</b></p>
   <br>
-  <a href="https://sayham.itch.io/expensee">
-    <img src="https://img.shields.io/badge/Download-Android_APK-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Download APK" />
+  <a href="https://play.google.com/store/apps/details?id=com.sayhamkayes.expensee">
+    <img alt="Get it on Google Play" src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" height="50" />
   </a>
   <br><br>
 </div>
