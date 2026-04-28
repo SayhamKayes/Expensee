@@ -12,7 +12,14 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
-      <Sonner />
+      <Sonner 
+        closeButton 
+        toastOptions={{
+          classNames: {
+            closeButton: "!right-4 !left-auto !top-1/2 !-translate-y-1/2 bg-background border-border"
+          }
+        }}
+      />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />

@@ -69,17 +69,6 @@ export function FiltersBar({
           <SelectItem value="month">This month</SelectItem>
         </SelectContent>
       </Select>
-
-      <Select value={currency} onValueChange={setCurrency}>
-        <SelectTrigger className="glass-input rounded-xl border-white/40 w-[130px]" aria-label="Currency">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent className="glass-strong border-white/40 rounded-xl max-h-72">
-          {CURRENCIES.map(c => (
-            <SelectItem key={c.code} value={c.symbol}>{c.label}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
       
       <div className="flex flex-wrap sm:flex-nowrap items-end gap-3 w-full sm:w-auto ml-auto">
         

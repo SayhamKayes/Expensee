@@ -15,11 +15,13 @@ import { MobileDashboard, MobileCategories, MobileGraph } from "@/components/Mob
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useDarkMode } from "@/hooks/useDarkMode"; 
+import { useDarkMode } from "@/hooks/useDarkMode";
+import { useAuth } from "@/hooks/useAuth";
+import { syncToGoogleDrive, downloadFromGoogleDrive } from "@/lib/googleDrive";
 
 const Index = () => {
-  // 1. Destructured the new updateExpense function here!
-  const { expenses, budget, currency, addExpense, removeExpense, updateExpense, setBudget, setCurrency } = useExpenses();
+  // 1. Destructured the new updateExpense and setExpenses functions here!
+  const { expenses, budget, currency, addExpense, removeExpense, updateExpense, setBudget, setCurrency, setExpenses } = useExpenses();
   const CURRENCY_CODE_MAP: Record<string, string> = {
     "$": "USD", "€": "EUR", "£": "GBP", "₹": "INR", "¥": "JPY",
     "A$": "AUD", "C$": "CAD", "R$": "BRL", "Mex$": "MXN",
@@ -36,6 +38,60 @@ const Index = () => {
   
   // <-- Initialize Dark Mode Hook here
   const { isDarkMode, toggleDarkMode } = useDarkMode();
+
+  const { user, signIn, signOut } = useAuth();
+
+  const handleBackup = async () => {
+    if (!user || !user.authentication.accessToken) {
+      return toast.error("Please log in to backup data");
+    }
+    
+    try {
+      toast.info("Uploading to Google Drive...", { id: "sync" });
+      
+      // Package up their entire app state
+      const appData = { expenses, budget, currency };
+      
+      // Send it to Google Drive!
+      await syncToGoogleDrive(user.authentication.accessToken, appData);
+      
+      toast.success("Backup complete! Safe in the cloud.", { id: "sync" });
+    } catch (error) {
+      toast.error("Failed to backup. Try again.", { id: "sync" });
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!user || !user.authentication.accessToken) {
+      return toast.error("Please log in to restore data");
+    }
+    
+    try {
+      toast.info("Checking Google Drive for backups...", { id: "sync" });
+      
+      // Pull the data down from Google Drive
+      const cloudData = await downloadFromGoogleDrive(user.authentication.accessToken);
+      
+      if (cloudData && cloudData.expenses) {
+        // 1. Overwrite the local state
+        setExpenses(cloudData.expenses);
+        if (cloudData.budget) setBudget(cloudData.budget);
+        if (cloudData.currency) setCurrency(cloudData.currency);
+        
+        // 2. Force save it to local storage so it survives a refresh
+        localStorage.setItem("expensee-expenses", JSON.stringify(cloudData.expenses));
+        if (cloudData.budget) localStorage.setItem("expensee-budget", JSON.stringify(cloudData.budget));
+        if (cloudData.currency) localStorage.setItem("expensee-currency", JSON.stringify(cloudData.currency));
+        
+        toast.success("Data successfully restored from the cloud!", { id: "sync" });
+      } else {
+        toast.error("No backup file found in your Google Drive.", { id: "sync" });
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to restore data. Try again.", { id: "sync" });
+    }
+  };
 
   const filtered = useMemo(() => {
     const now = new Date();
@@ -66,7 +122,7 @@ const Index = () => {
       <MobileShell active={mobileTab} onChange={setMobileTab}>
         {mobileTab === "dashboard" && (
           <>
-            <MobileDashboard expenses={expenses} budget={budget} currency={currency} setBudget={setBudget} />
+            <MobileDashboard expenses={expenses} budget={budget} currency={currency} setBudget={setBudget} user={user} signIn={signIn} signOut={signOut} handleBackup={handleBackup} handleRestore={handleRestore} setCurrency={setCurrency} />
             <FiltersBar
               search={search} setSearch={setSearch}
               category={category} setCategory={setCategory}
@@ -105,9 +161,39 @@ const Index = () => {
             </div>
           </div>
           
-          {/* <-- Container for the Toggle and the Badge --> */}
+          {/* <-- Container for the Toggle, Login, and Badge --> */}
           <div className="hidden sm:flex items-center gap-3">
             
+            {/* If logged in, show their profile pic & logout button. If not, show Login button */}
+            {user ? (
+              <div className="flex items-center gap-2 glass-input rounded-full pr-4 pl-1 py-1 border-white/40">
+                <img src={user.imageUrl} alt="Profile" className="w-7 h-7 rounded-full" />
+                <span className="text-xs font-medium">{user.givenName}</span>
+                
+                {/* <-- NEW BACKUP BUTTON --> */}
+                <button onClick={handleBackup} className="text-xs text-success hover:text-success/80 ml-2 font-bold px-2 border-l border-white/20">
+                  Backup
+                </button>
+
+                {/* <-- NEW RESTORE BUTTON --> */}
+                <button onClick={handleRestore} className="text-xs text-blue-400 hover:text-blue-300 font-bold px-2 border-l border-white/20">
+                  Restore
+                </button>
+                
+                <button onClick={signOut} className="text-xs text-muted-foreground hover:text-destructive ml-2 font-bold px-2 border-l border-white/20">
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={signIn}
+                className="glass-input rounded-full px-4 py-2 text-xs font-medium border border-white/40 hover:bg-white/20 transition-all flex items-center gap-2"
+              >
+                <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-3 h-3" />
+                Sign in
+              </button>
+            )}
+
             <button
               onClick={toggleDarkMode}
               className="glass-input rounded-full h-9 w-9 flex items-center justify-center border border-white/40 hover:bg-white/20 transition-all shrink-0"
@@ -124,7 +210,7 @@ const Index = () => {
           </div>
         </header>
 
-        <StatsPanel expenses={expenses} budget={budget} currency={currency} setBudget={setBudget} />
+        <StatsPanel expenses={expenses} budget={budget} currency={currency} setBudget={setBudget} setCurrency={setCurrency} />
         <AddExpenseCard onAdd={addExpense} />
 
         <FiltersBar

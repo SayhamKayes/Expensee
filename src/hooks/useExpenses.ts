@@ -23,6 +23,11 @@ export function useExpenses() {
     }));
   }, []);
 
+  // 1. <-- NEW FUNCTION: Overwrites the entire expenses array (used for Cloud Restore) -->
+  const setExpenses = useCallback((expenses: Expense[]) => {
+    setState(s => ({ ...s, expenses }));
+  }, []);
+
   const setBudget = useCallback((budget: number) => {
     setState(s => ({ ...s, budget }));
   }, []);
@@ -35,5 +40,14 @@ export function useExpenses() {
     setState(s => ({ ...s, expenses: [] }));
   }, []);
 
-  return { ...state, addExpense, removeExpense, updateExpense, setBudget, setCurrency, clearAll };
+  return { 
+    ...state, 
+    addExpense, 
+    removeExpense, 
+    updateExpense, 
+    setExpenses, 
+    setBudget, 
+    setCurrency, 
+    clearAll 
+  };
 }
