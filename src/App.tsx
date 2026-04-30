@@ -5,8 +5,16 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
 const queryClient = new QueryClient();
+
+// Initialize Google Auth for the Web platform
+GoogleAuth.initialize({
+  clientId: '776701945232-kfjjlrq1kiivtsov9re4hpj3e78cu1k2.apps.googleusercontent.com',
+  scopes: ['profile', 'email', 'https://www.googleapis.com/auth/drive.file'],
+  grantOfflineAccess: true,
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
