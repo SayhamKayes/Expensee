@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { Expense, formatMoney, CATEGORY_COLORS, Category, CATEGORIES } from "@/lib/expenses";
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 // Added startOfYear and eachMonthOfInterval for the new filters!
-import { format, startOfMonth, isAfter, subDays, eachDayOfInterval, startOfYear, eachMonthOfInterval } from "date-fns";
+import { format, startOfMonth, isAfter, subDays, eachDayOfInterval, startOfYear, eachMonthOfInterval, startOfDay, endOfDay } from "date-fns";
 import { Pencil, Check, X } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -29,6 +29,11 @@ export function StatsPanel({ expenses, budget, currency, setBudget, setCurrency 
   // <-- NEW STATE FOR GRAPH FILTER -->
   const [graphRange, setGraphRange] = useState<"14d" | "month" | "year" | "all">("14d");
 
+  // <-- NEW STATE FOR CATEGORY PIE CHART FILTER -->
+  const [categoryRange, setCategoryRange] = useState<"month" | "year" | "all" | "custom">("month");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+
   const startEdit = () => {
     setDraftBudget(budget.toString());
     setEditingBudget(true);
@@ -40,10 +45,26 @@ export function StatsPanel({ expenses, budget, currency, setBudget, setCurrency 
   };
   const cancelBudget = () => setEditingBudget(false);
 
-  // Pie data by category (this month)
+  // <-- DYNAMIC PIE CHART LOGIC -->
+  const pieExpenses = useMemo(() => {
+    const n = new Date();
+    return expenses.filter(e => {
+      const d = new Date(e.date);
+      if (categoryRange === "month") return isAfter(d, startOfMonth(n)) || d.getTime() === startOfMonth(n).getTime();
+      if (categoryRange === "year") return isAfter(d, startOfYear(n)) || d.getTime() === startOfYear(n).getTime();
+      if (categoryRange === "custom" && customStart && customEnd) {
+        const s = startOfDay(new Date(customStart));
+        const e = endOfDay(new Date(customEnd));
+        return d >= s && d <= e;
+      }
+      if (categoryRange === "custom") return false; // Hide data until both dates are picked
+      return true; // "all"
+    });
+  }, [expenses, categoryRange, customStart, customEnd]);
+
   const byCat = CATEGORIES.map(cat => ({
     name: cat,
-    value: monthExpenses.filter(e => e.category === cat).reduce((s, e) => s + e.amount, 0),
+    value: pieExpenses.filter(e => e.category === cat).reduce((s, e) => s + e.amount, 0),
   })).filter(d => d.value > 0);
 
   // <-- DYNAMIC GRAPH LOGIC -->
@@ -159,9 +180,43 @@ export function StatsPanel({ expenses, budget, currency, setBudget, setCurrency 
       </div>
 
       {/* Pie */}
-      <div className="glass-strong rounded-3xl p-6 shadow-glass">
-        <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">By category</p>
-        <div className="h-48">
+      <div className="glass-strong rounded-3xl p-6 shadow-glass flex flex-col">
+        {/* HEADER WITH DROPDOWN */}
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">By category</p>
+          <Select value={categoryRange} onValueChange={(v: any) => setCategoryRange(v)}>
+            <SelectTrigger className="h-7 text-[10px] glass-input rounded-lg border-white/40 px-2 w-[110px] shadow-none focus:ring-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="glass-strong border-white/40 rounded-xl">
+              <SelectItem value="month">This Month</SelectItem>
+              <SelectItem value="year">This Year</SelectItem>
+              <SelectItem value="all">All Time</SelectItem>
+              <SelectItem value="custom">Custom Range</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* CUSTOM DATE PICKERS (Only shows if "Custom" is selected) */}
+        {categoryRange === "custom" && (
+          <div className="flex items-center gap-2 mb-2 animate-in fade-in zoom-in duration-200">
+            <input 
+              type="date" 
+              value={customStart} 
+              onChange={(e) => setCustomStart(e.target.value)}
+              className="w-full h-7 text-[10px] glass-input rounded-lg border-white/40 px-2 outline-none"
+            />
+            <span className="text-muted-foreground text-xs">to</span>
+            <input 
+              type="date" 
+              value={customEnd} 
+              onChange={(e) => setCustomEnd(e.target.value)}
+              className="w-full h-7 text-[10px] glass-input rounded-lg border-white/40 px-2 outline-none"
+            />
+          </div>
+        )}
+
+        <div className="flex-1 min-h-[192px]">
           {byCat.length ? (
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -172,7 +227,9 @@ export function StatsPanel({ expenses, budget, currency, setBudget, setCurrency 
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-full flex items-center justify-center text-sm text-muted-foreground">No data this month</div>
+            <div className="h-full flex items-center justify-center text-sm text-muted-foreground text-center">
+              {categoryRange === "custom" && (!customStart || !customEnd) ? "Select a start and end date" : "No data for this range"}
+            </div>
           )}
         </div>
         <div className="flex flex-wrap gap-2 mt-2">

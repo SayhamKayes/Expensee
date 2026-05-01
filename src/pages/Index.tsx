@@ -6,7 +6,7 @@ import { FiltersBar } from "@/components/FiltersBar";
 import { ExpenseList } from "@/components/ExpenseList";
 import { Category, CATEGORIES, Expense } from "@/lib/expenses";
 import { exportCSV, exportPDF, exportXLSX } from "@/lib/exporters";
-import { isAfter, startOfMonth, subDays } from "date-fns";
+import { isAfter, startOfMonth, subDays, startOfYear, startOfDay, endOfDay, isBefore } from "date-fns";
 import { Wallet, X, Moon, Sun } from "lucide-react";
 import { toast } from "sonner";
 import { Footer } from "@/components/Footer";
@@ -106,6 +106,29 @@ const Index = () => {
     });
   }, [expenses, search, category, range]);
 
+  // <-- Helper to refine the list of filtered expenses specifically for the export -->
+  const filterExpensesForExport = (data: { exportRange: string; customStart: string; customEnd: string }) => {
+    const { exportRange, customStart, customEnd } = data;
+    const now = new Date();
+
+    return filtered.filter((e) => {
+      const expenseDate = startOfDay(new Date(e.date));
+
+      if (exportRange === "month") {
+        return (isAfter(expenseDate, startOfMonth(now)) || expenseDate.getTime() === startOfMonth(now).getTime());
+      }
+      if (exportRange === "year") {
+        return (isAfter(expenseDate, startOfYear(now)) || expenseDate.getTime() === startOfYear(now).getTime());
+      }
+      if (exportRange === "custom" && customStart && customEnd) {
+        const sD = startOfDay(new Date(customStart));
+        const eD = endOfDay(new Date(customEnd));
+        return (expenseDate.getTime() >= sD.getTime() && expenseDate.getTime() <= eD.getTime());
+      }
+      return true; // "all"
+    });
+  };
+
   const guard = (fn: () => void) => () => {
     if (!filtered.length) return toast.error("Nothing to export");
     fn();
@@ -129,9 +152,41 @@ const Index = () => {
               range={range} setRange={setRange}
               budget={budget} setBudget={setBudget}
               currency={currency} setCurrency={setCurrency}
-              onExportCSV={(title) => guard(() => exportCSV(filtered, { currency, currencyCode, title }))()}
-              onExportXLSX={(title) => guard(() => exportXLSX(filtered, { currency, currencyCode, title }))()}
-              onExportPDF={(title) => guard(() => exportPDF(filtered, { currency, currencyCode, title }))()}
+              
+              // <-- Updated Export Callbacks -->
+              onExportCSV={(data) => {
+                const refinedData = filterExpensesForExport(data);
+                guard(() => exportCSV(refinedData, { 
+                  currency, 
+                  currencyCode, 
+                  title: data.title,
+                  exportRange: data.exportRange,
+                  customStart: data.customStart, 
+                  customEnd: data.customEnd 
+                }))();
+              }}
+              onExportXLSX={(data) => {
+                const refinedData = filterExpensesForExport(data);
+                guard(() => exportXLSX(refinedData, { 
+                  currency, 
+                  currencyCode, 
+                  title: data.title,
+                  exportRange: data.exportRange,
+                  customStart: data.customStart, 
+                  customEnd: data.customEnd 
+                }))();
+              }}
+              onExportPDF={(data) => {
+                const refinedData = filterExpensesForExport(data);
+                guard(() => exportPDF(refinedData, { 
+                  currency, 
+                  currencyCode, 
+                  title: data.title,
+                  exportRange: data.exportRange,
+                  customStart: data.customStart, 
+                  customEnd: data.customEnd 
+                }))();
+              }}
             />
             {/* Added onEdit prop here */}
             <ExpenseList expenses={filtered} currency={currency} onRemove={removeExpense} onEdit={setEditingExpense} />
@@ -219,9 +274,40 @@ const Index = () => {
           range={range} setRange={setRange}
           budget={budget} setBudget={setBudget}
           currency={currency} setCurrency={setCurrency}
-          onExportCSV={(title) => guard(() => exportCSV(filtered, { currency, currencyCode, title }))()}
-          onExportXLSX={(title) => guard(() => exportXLSX(filtered, { currency, currencyCode, title }))()}
-          onExportPDF={(title) => guard(() => exportPDF(filtered, { currency, currencyCode, title }))()}
+          
+          onExportCSV={(data) => {
+            const refinedData = filterExpensesForExport(data);
+            guard(() => exportCSV(refinedData, { 
+              currency, 
+              currencyCode, 
+              title: data.title,
+              exportRange: data.exportRange,
+              customStart: data.customStart, 
+              customEnd: data.customEnd 
+            }))();
+          }}
+          onExportXLSX={(data) => {
+            const refinedData = filterExpensesForExport(data);
+            guard(() => exportXLSX(refinedData, { 
+              currency, 
+              currencyCode, 
+              title: data.title,
+              exportRange: data.exportRange,
+              customStart: data.customStart, 
+              customEnd: data.customEnd 
+            }))();
+          }}
+          onExportPDF={(data) => {
+            const refinedData = filterExpensesForExport(data);
+            guard(() => exportPDF(refinedData, { 
+              currency, 
+              currencyCode, 
+              title: data.title,
+              exportRange: data.exportRange,
+              customStart: data.customStart, 
+              customEnd: data.customEnd 
+            }))();
+          }}
         />
 
         {/* Added onEdit prop here */}

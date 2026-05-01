@@ -1,6 +1,6 @@
 import { Expense, formatMoney, CATEGORY_COLORS, Category, CATEGORIES } from "@/lib/expenses";
 import { PieChart, Pie, Cell, ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar } from "recharts";
-import { format, startOfMonth, isAfter, subDays, eachDayOfInterval, startOfYear, eachMonthOfInterval } from "date-fns";
+import { format, startOfMonth, isAfter, subDays, eachDayOfInterval, startOfYear, eachMonthOfInterval, startOfDay, endOfDay } from "date-fns";
 import { useState, useMemo } from "react";
 import { Pencil, Check, X, Cloud } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -179,73 +179,99 @@ export function MobileDashboard({
   );
 }
 
-/* -------- Categories tab: pie + per-category breakdown -------- */
+/* -------- Categories tab: Dynamic Pie Chart -------- */
 export function MobileCategories({ expenses, currency }: CommonProps) {
-  const now = new Date();
-  const monthStart = startOfMonth(now);
-  const monthExpenses = expenses.filter((e) => isAfter(new Date(e.date), monthStart));
+  const [categoryRange, setCategoryRange] = useState<"month" | "year" | "all" | "custom">("month");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
 
-  const byCat = CATEGORIES.map((cat) => ({
+  const pieExpenses = useMemo(() => {
+    const n = new Date();
+    return expenses.filter(e => {
+      const d = new Date(e.date);
+      if (categoryRange === "month") return isAfter(d, startOfMonth(n)) || d.getTime() === startOfMonth(n).getTime();
+      if (categoryRange === "year") return isAfter(d, startOfYear(n)) || d.getTime() === startOfYear(n).getTime();
+      if (categoryRange === "custom" && customStart && customEnd) {
+        const s = startOfDay(new Date(customStart));
+        const e = endOfDay(new Date(customEnd));
+        return d >= s && d <= e;
+      }
+      if (categoryRange === "custom") return false; 
+      return true; // "all"
+    });
+  }, [expenses, categoryRange, customStart, customEnd]);
+
+  const byCat = CATEGORIES.map(cat => ({
     name: cat,
-    value: monthExpenses.filter((e) => e.category === cat).reduce((s, e) => s + e.amount, 0),
-    count: monthExpenses.filter((e) => e.category === cat).length,
-  })).filter((d) => d.value > 0);
-
-  const total = byCat.reduce((s, d) => s + d.value, 0);
+    value: pieExpenses.filter(e => e.category === cat).reduce((s, e) => s + e.amount, 0),
+  })).filter(d => d.value > 0);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-20">
       <div className="glass-strong rounded-3xl p-5 shadow-glass">
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">By category · this month</p>
-        <div className="h-52">
+        
+        {/* HEADER WITH DROPDOWN */}
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Category Breakdown</p>
+          <Select value={categoryRange} onValueChange={(v: any) => setCategoryRange(v)}>
+            <SelectTrigger className="h-7 text-[10px] glass-input rounded-lg border-white/40 px-2 w-[110px] shadow-none focus:ring-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="glass-strong border-white/40 rounded-xl">
+              <SelectItem value="month">This Month</SelectItem>
+              <SelectItem value="year">This Year</SelectItem>
+              <SelectItem value="all">All Time</SelectItem>
+              <SelectItem value="custom">Custom Range</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* CUSTOM DATE PICKERS */}
+        {categoryRange === "custom" && (
+          <div className="flex items-center gap-2 mb-4 animate-in fade-in zoom-in duration-200">
+            <input 
+              type="date" 
+              value={customStart} 
+              onChange={(e) => setCustomStart(e.target.value)}
+              className="w-full h-8 text-xs glass-input rounded-lg border-white/40 px-2 outline-none"
+            />
+            <span className="text-muted-foreground text-xs">to</span>
+            <input 
+              type="date" 
+              value={customEnd} 
+              onChange={(e) => setCustomEnd(e.target.value)}
+              className="w-full h-8 text-xs glass-input rounded-lg border-white/40 px-2 outline-none"
+            />
+          </div>
+        )}
+
+        <div className="h-56 mb-4">
           {byCat.length ? (
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={byCat} dataKey="value" innerRadius={50} outerRadius={85} paddingAngle={2}>
+                <Pie data={byCat} dataKey="value" innerRadius={50} outerRadius={80} paddingAngle={2}>
                   {byCat.map((d) => <Cell key={d.name} fill={CATEGORY_COLORS[d.name as Category]} />)}
                 </Pie>
-                <Tooltip
-                  contentStyle={{ background: "rgba(255,255,255,0.9)", border: "none", borderRadius: 12 }}
-                  formatter={(v: number) => formatMoney(v, currency)}
-                />
+                <Tooltip contentStyle={{ background: "rgba(255,255,255,0.9)", border: "none", borderRadius: 12 }} formatter={(v: number) => formatMoney(v, currency)} />
               </PieChart>
             </ResponsiveContainer>
           ) : (
-            <div className="h-full flex items-center justify-center text-sm text-muted-foreground">No data this month</div>
+            <div className="h-full flex items-center justify-center text-sm text-muted-foreground text-center">
+              {categoryRange === "custom" && (!customStart || !customEnd) ? "Select dates to view data" : "No data for this range"}
+            </div>
           )}
         </div>
-      </div>
-
-      <div className="glass rounded-3xl p-2 divide-y divide-white/30">
-        {byCat.length === 0 && (
-          <p className="p-6 text-center text-sm text-muted-foreground">Add an expense to see categories.</p>
-        )}
-        {byCat.map((d) => {
-          const pct = total > 0 ? (d.value / total) * 100 : 0;
-          return (
-            <div key={d.name} className="p-3 flex items-center gap-3">
-              <div
-                className="w-9 h-9 rounded-2xl flex items-center justify-center text-xs font-bold text-white shrink-0 shadow-glass"
-                style={{ background: CATEGORY_COLORS[d.name as Category] }}
-              >
-                {d.name[0]}
+        <div className="space-y-2">
+          {byCat.sort((a, b) => b.value - a.value).map(d => (
+            <div key={d.name} className="flex items-center justify-between p-3 rounded-2xl glass-input border-white/20">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full" style={{ background: CATEGORY_COLORS[d.name as Category] }} />
+                <span className="text-sm font-medium">{d.name}</span>
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <p className="font-medium text-sm">{d.name}</p>
-                  <p className="font-semibold tabular-nums text-sm">{formatMoney(d.value, currency)}</p>
-                </div>
-                <div className="mt-1 flex items-center gap-2">
-                  <div className="flex-1 h-1.5 rounded-full bg-white/50 overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: CATEGORY_COLORS[d.name as Category] }} />
-                  </div>
-                  <span className="text-[10px] text-muted-foreground tabular-nums w-10 text-right">{pct.toFixed(0)}%</span>
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{d.count} entries</p>
-              </div>
+              <span className="font-semibold text-sm">{formatMoney(d.value, currency)}</span>
             </div>
-          );
-        })}
+          ))}
+        </div>
       </div>
     </div>
   );

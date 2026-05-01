@@ -8,10 +8,22 @@ import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 
 type ExportOpts = {
-  currency?: string;       // symbol for display in CSV/XLSX
-  currencyCode?: string;   // ISO code, used in PDF for safe rendering
-  title?: string;          // custom report title
+  currency?: string;       
+  currencyCode?: string;   
+  title?: string;          
+  exportRange?: "all" | "month" | "year" | "custom";
+  customStart?: string;
+  customEnd?: string;
 };
+
+function getRangeLabel(options: ExportOpts): string {
+  if (options.exportRange === "custom" && options.customStart && options.customEnd) {
+    return `Report Period: ${format(new Date(options.customStart), "MMM dd, yyyy")} to ${format(new Date(options.customEnd), "MMM dd, yyyy")}`;
+  }
+  if (options.exportRange === "month") return "Report Period: This Month";
+  if (options.exportRange === "year") return "Report Period: This Year";
+  return "Report Period: All Time";
+}
 
 function sanitizeFilename(name: string) {
   return (name || "expenses").trim().replace(/[^\w\-]+/g, "_").slice(0, 60) || "expenses";
@@ -22,8 +34,7 @@ function rows(expenses: Expense[], currency: string) {
     Date: format(new Date(e.date), "yyyy-MM-dd"),
     Purpose: e.purpose,
     Category: e.category,
-    [`Amount (${currency})`]: `${currency}${e.amount.toFixed(2)}`,
-    Recurring: e.recurring || "no",
+    [`Amount (${currency})`]: `${currency}${e.amount.toFixed(2)}`
   }));
 }
 
@@ -66,13 +77,20 @@ function download(blob: Blob, filename: string) {
 export const exportCSV = async (expenses: Expense[], options: ExportOpts) => {
   const { currency = "$", title = "Expense Report" } = options;
   const fileName = sanitizeFilename(title);
+  const rangeLabel = getRangeLabel(options);
 
-  // Generate actual CSV string data
-  const header = ["Date", "Purpose", "Category", `Amount (${currency})`, "Recurring"];
+  const header = ["Date", "Purpose", "Category", `Amount (${currency})`];
   const dataRows = rows(expenses, currency).map(r => 
-    [r.Date, `"${r.Purpose}"`, r.Category, r[`Amount (${currency})`], r.Recurring]
+    [r.Date, `"${r.Purpose}"`, r.Category, r[`Amount (${currency})`]]
   );
-  const csvContent = [header.join(","), ...dataRows.map(r => r.join(","))].join("\n");
+  
+  const csvContent = [
+    `"${title}"`, 
+    `"${rangeLabel}"`, 
+    "", 
+    header.join(","), 
+    ...dataRows.map(r => r.join(","))
+  ].join("\n");
 
   if (Capacitor.isNativePlatform()) {
     try {
@@ -80,7 +98,7 @@ export const exportCSV = async (expenses: Expense[], options: ExportOpts) => {
         path: `${fileName}.csv`,
         data: csvContent,
         directory: Directory.Cache,
-        encoding: Encoding.UTF8 // Only use encoding for CSV
+        encoding: Encoding.UTF8 
       });
       await Share.share({ title: fileName, url: result.uri });
     } catch (e) {
@@ -98,22 +116,32 @@ export const exportCSV = async (expenses: Expense[], options: ExportOpts) => {
 export const exportXLSX = async (expenses: Expense[], options: ExportOpts) => {
   const { currency = "$", title = "Expense Report" } = options;
   const fileName = sanitizeFilename(title);
+  const rangeLabel = getRangeLabel(options);
 
-  // Generate actual Excel Workbook
-  const worksheet = XLSX.utils.json_to_sheet(rows(expenses, currency));
+  const header = ["Date", "Purpose", "Category", `Amount (${currency})`];
+  const dataRows = rows(expenses, currency).map(r => 
+    [r.Date, r.Purpose, r.Category, r[`Amount (${currency})`]]
+  );
+
+  const sheetData = [
+    [title],
+    [rangeLabel],
+    [], 
+    header,
+    ...dataRows
+  ];
+
+  const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Expenses");
 
   if (Capacitor.isNativePlatform()) {
     try {
-      // Get pure base64 directly from SheetJS
       const base64Data = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
-
       const result = await Filesystem.writeFile({
         path: `${fileName}.xlsx`,
         data: base64Data,
         directory: Directory.Cache
-        // NO ENCODING HERE
       });
       await Share.share({ title: fileName, url: result.uri });
     } catch (e) {
@@ -132,63 +160,53 @@ export const exportXLSX = async (expenses: Expense[], options: ExportOpts) => {
 export const exportPDF = async (expenses: Expense[], options: ExportOpts) => {
   const { currency = "$", currencyCode, title = "Expense Report" } = options;
   const fileName = sanitizeFilename(title);
+  const rangeLabel = getRangeLabel(options);
 
-  // 1. Calculate the totals
   const totalAmount = expenses.reduce((sum, e) => sum + e.amount, 0);
   const totalEntries = expenses.length;
 
-  // Generate actual PDF Document
   const doc = new jsPDF();
   const display = getPdfCurrencyDisplay(currency, currencyCode, false);
 
-  // Draw the Title
   doc.setFontSize(18);
-  doc.setTextColor(0, 0, 0); // Black text
+  doc.setTextColor(0, 0, 0); 
   doc.text(title, 14, 22);
 
-  // 2. Draw the Summary Details
   doc.setFontSize(11);
-  doc.setTextColor(100, 100, 100); // Subtle gray text for a professional look
-  doc.text(`Currency: ${display.headerLabel}`, 14, 32);
-  doc.text(`Total Entries: ${totalEntries}`, 14, 38);
-  doc.text(`Total Amount: ${display.summaryPrefix}${totalAmount.toFixed(2)}`, 14, 44);
+  doc.setTextColor(100, 100, 100); 
+  doc.text(rangeLabel, 14, 30);
+  doc.text(`Currency: ${display.headerLabel}`, 14, 36);
+  doc.text(`Total Entries: ${totalEntries}`, 14, 42);
+  doc.text(`Total Amount: ${display.summaryPrefix}${totalAmount.toFixed(2)}`, 14, 48);
 
   const tableData = expenses.map(e => [
     format(new Date(e.date), "yyyy-MM-dd"),
     e.purpose,
     e.category,
-    `${display.rowPrefix}${e.amount.toFixed(2)}`,
-    e.recurring ? "Yes" : "No"
+    `${display.rowPrefix}${e.amount.toFixed(2)}`
   ]);
 
-  // 3. Draw the Table (Pushed startY down to 52 to make room for the text)
   autoTable(doc, {
-    startY: 52,
-    head: [["Date", "Purpose", "Category", `Amount (${display.headerLabel})`, "Recurring"]],
+    startY: 56,
+    head: [["Date", "Purpose", "Category", `Amount (${display.headerLabel})`]],
     body: tableData,
-    
-    // 1. ADD THE FOOTER ARRAY
-    foot: [["", "", "Total:", `${display.rowPrefix}${totalAmount.toFixed(2)}`, ""]],
-    
-    // 2. ADD STYLING TO MAKE IT POP
+    foot: [["", "Total:", "", `${display.rowPrefix}${totalAmount.toFixed(2)}`]],
     footStyles: {
-      fillColor: [240, 240, 240], // Light gray background
-      textColor: [0, 0, 0],       // Black text
-      fontStyle: "bold",          // Make it bold so it stands out
+      fillColor: [240, 240, 240], 
+      textColor: [0, 0, 0],       
+      fontStyle: "bold",          
     }
   });
 
   if (Capacitor.isNativePlatform()) {
     try {
-      // Get base64 string directly from jsPDF
       const dataUri = doc.output('datauristring');
-      const cleanBase64 = dataUri.split(',')[1]; // Strip prefix
+      const cleanBase64 = dataUri.split(',')[1];
 
       const result = await Filesystem.writeFile({
         path: `${fileName}.pdf`,
         data: cleanBase64,
         directory: Directory.Cache
-        // NO ENCODING HERE
       });
       await Share.share({ title: fileName, url: result.uri });
     } catch (e) {
